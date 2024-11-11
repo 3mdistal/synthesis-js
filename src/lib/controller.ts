@@ -25,8 +25,8 @@ export class SynthController {
 		this.#synthNode.port.postMessage({
 			type: 'playSequence',
 			frequencies,
-			attack: 0.1,
-			decay: 0.3
+			attack: 0.05,
+			decay: 0.1
 		});
 	}
 }
