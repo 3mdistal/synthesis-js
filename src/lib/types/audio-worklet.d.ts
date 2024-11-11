@@ -2,6 +2,11 @@
 declare class AudioWorkletProcessor {
 	readonly port: MessagePort;
 	constructor();
+	process(
+		inputs: Float32Array[][],
+		outputs: Float32Array[][],
+		parameters: Record<string, Float32Array>
+	): boolean;
 }
 
 declare class AudioParamDescriptor {
@@ -22,4 +27,5 @@ interface AudioWorkletGlobalScope {
 	registerProcessor: typeof registerProcessor;
 	currentTime: number;
 	sampleRate: number;
+	currentFrame: number;
 }

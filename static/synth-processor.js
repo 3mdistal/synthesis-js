@@ -19,7 +19,9 @@
           this.decay = e.data.decay;
           this.noteIndex = 0;
           this.isPlaying = true;
+          this.phase = 0;
           this.noteStartTime = this.getCurrentTime();
+          this.envelope = 0;
         }
       };
     }
@@ -28,6 +30,9 @@
     }
     calculateEnvelope(time) {
       const noteTime = time - this.noteStartTime;
+      if (noteTime < 0) {
+        return 0;
+      }
       if (noteTime < this.attack) {
         return noteTime / this.attack;
       } else if (noteTime < this.attack + this.decay) {
@@ -35,12 +40,21 @@
       }
       return 0;
     }
-    process(inputs, outputs, parameters) {
+    process(inputs, outputs) {
       const output = outputs[0];
       const currentTime = this.getCurrentTime();
       if (this.isPlaying) {
-        this.envelope = this.calculateEnvelope(currentTime);
-        if (this.envelope <= 0) {
+        const frequency = this.frequencies[this.noteIndex];
+        const newEnvelope = this.calculateEnvelope(currentTime);
+        for (let channel = 0; channel < output.length; ++channel) {
+          const outputChannel = output[channel];
+          for (let i = 0; i < outputChannel.length; ++i) {
+            outputChannel[i] = Math.sin(2 * Math.PI * frequency * this.phase) * newEnvelope;
+            this.phase += 1 / sampleRate;
+          }
+        }
+        this.envelope = newEnvelope;
+        if (this.envelope <= 0 && currentTime > this.noteStartTime + this.attack + this.decay) {
           this.noteIndex++;
           if (this.noteIndex >= this.frequencies.length) {
             this.isPlaying = false;
@@ -48,14 +62,6 @@
           }
           this.noteStartTime = currentTime;
           this.phase = 0;
-        }
-        const frequency = this.frequencies[this.noteIndex];
-        for (let channel = 0; channel < output.length; ++channel) {
-          const outputChannel = output[channel];
-          for (let i = 0; i < outputChannel.length; ++i) {
-            outputChannel[i] = Math.sin(2 * Math.PI * frequency * this.phase) * this.envelope;
-            this.phase += 1 / sampleRate;
-          }
         }
       }
       return true;
