@@ -15,8 +15,19 @@ export class SynthController {
 
 	noteToFreq(note: string) {
 		const noteMap: { [key: string]: number } = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
-		const [noteName, octave] = [note.slice(0, 1).toLowerCase(), parseInt(note.slice(1))];
-		const semitones = noteMap[noteName] + (octave + 1) * 12;
+
+		// Extract note, accidental, and octave
+		const match = note.match(/^([a-g])(#|b)?(\d+)$/i);
+		if (!match) throw new Error('Invalid note format');
+
+		const [, noteName, accidental, octave] = match;
+		let semitones = noteMap[noteName.toLowerCase()];
+
+		// Adjust for sharp or flat
+		if (accidental === '#') semitones += 1;
+		if (accidental === 'b') semitones -= 1;
+
+		semitones += (parseInt(octave) + 1) * 12;
 		return 440 * Math.pow(2, (semitones - 69) / 12);
 	}
 
