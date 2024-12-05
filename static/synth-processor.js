@@ -4,64 +4,51 @@
   var SimpleSynthProcessor = class extends AudioWorkletProcessor {
     constructor() {
       super();
+      this.frequency = 440;
+      this.targetFrequency = 440;
       this.phase = 0;
-      this.noteIndex = 0;
-      this.isPlaying = false;
-      this.envelope = 0;
-      this.noteStartTime = 0;
-      this.frequencies = [];
-      this.attack = 0.1;
-      this.decay = 0.3;
+      this.type = "square";
+      this.smoothingFactor = 0.05;
       this.port.onmessage = (e) => {
-        if (e.data.type === "playSequence") {
-          this.frequencies = e.data.frequencies;
-          this.attack = e.data.attack;
-          this.decay = e.data.decay;
-          this.noteIndex = 0;
-          this.isPlaying = true;
-          this.phase = 0;
-          this.noteStartTime = this.getCurrentTime();
-          this.envelope = 0;
+        if (e.data.type === "setFrequency") {
+          console.log("Received frequency:", e.data.value);
+          this.targetFrequency = e.data.value;
+        } else if (e.data.type === "setOscType") {
+          this.type = e.data.value;
         }
       };
     }
-    getCurrentTime() {
-      return currentFrame / sampleRate;
-    }
-    calculateEnvelope(time) {
-      const noteTime = time - this.noteStartTime;
-      if (noteTime < 0) {
-        return 0;
-      }
-      if (noteTime < this.attack) {
-        return noteTime / this.attack;
-      } else if (noteTime < this.attack + this.decay) {
-        return 1 - (noteTime - this.attack) / this.decay;
+    // PolyBLEP anti-aliasing for square wave
+    polyBlep(t, dt) {
+      if (t < dt) {
+        t = t / dt;
+        return t + t - t * t - 1;
+      } else if (t > 1 - dt) {
+        t = (t - 1) / dt;
+        return t * t + t + t + 1;
       }
       return 0;
     }
-    process(inputs, outputs) {
+    process(_inputs, outputs) {
       const output = outputs[0];
-      const currentTime = this.getCurrentTime();
-      if (this.isPlaying) {
-        const frequency = this.frequencies[this.noteIndex];
-        const newEnvelope = this.calculateEnvelope(currentTime);
-        for (let channel = 0; channel < output.length; ++channel) {
-          const outputChannel = output[channel];
-          for (let i = 0; i < outputChannel.length; ++i) {
-            outputChannel[i] = Math.sin(2 * Math.PI * frequency * this.phase) * newEnvelope;
-            this.phase += 1 / sampleRate;
+      this.frequency += (this.targetFrequency - this.frequency) * this.smoothingFactor;
+      const dt = this.frequency / sampleRate;
+      for (let channel = 0; channel < output.length; ++channel) {
+        const outputChannel = output[channel];
+        for (let i = 0; i < outputChannel.length; ++i) {
+          const t = this.phase;
+          if (this.type === "sine") {
+            outputChannel[i] = Math.sin(2 * Math.PI * t);
+          } else {
+            let square = t < 0.5 ? 1 : -1;
+            square -= this.polyBlep(t, dt);
+            square += this.polyBlep((t + 0.5) % 1, dt);
+            outputChannel[i] = square * 0.5;
           }
-        }
-        this.envelope = newEnvelope;
-        if (this.envelope <= 0 && currentTime > this.noteStartTime + this.attack + this.decay) {
-          this.noteIndex++;
-          if (this.noteIndex >= this.frequencies.length) {
-            this.isPlaying = false;
-            return true;
+          this.phase += dt;
+          if (this.phase >= 1) {
+            this.phase -= 1;
           }
-          this.noteStartTime = currentTime;
-          this.phase = 0;
         }
       }
       return true;

@@ -1,43 +1,82 @@
 export class SynthController {
 	audioContext!: AudioContext;
 	#synthNode!: AudioWorkletNode;
+	#gainNode!: GainNode;
+	#isInitialized = false;
 
 	async init() {
-		this.audioContext = new AudioContext();
-		await this.setup();
+		if (!this.#isInitialized) {
+			try {
+				console.log('Initializing audio context...');
+				this.audioContext = new AudioContext();
+				await this.setup();
+				this.#isInitialized = true;
+				console.log('Audio context initialized successfully');
+			} catch (error) {
+				console.error('Failed to initialize synth:', error);
+				throw error;
+			}
+		}
+		console.log('Resuming audio context...');
+		await this.audioContext.resume();
+		console.log('Audio context state:', this.audioContext.state);
 	}
 
-	async setup() {
-		await this.audioContext.audioWorklet.addModule('/synth-processor.js');
-		this.#synthNode = new AudioWorkletNode(this.audioContext, 'simple-synth-processor');
-		this.#synthNode.connect(this.audioContext.destination);
+	async stop() {
+		if (this.audioContext) {
+			console.log('Suspending audio context...');
+			await this.audioContext.suspend();
+			console.log('Audio context state:', this.audioContext.state);
+		}
 	}
 
-	noteToFreq(note: string) {
-		const noteMap: { [key: string]: number } = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+	private async setup() {
+		try {
+			console.log('Setting up audio nodes...');
+			await this.audioContext.audioWorklet.addModule('/synth-processor.js');
+			this.#synthNode = new AudioWorkletNode(this.audioContext, 'simple-synth-processor');
+			this.#gainNode = this.audioContext.createGain();
+			this.#gainNode.gain.value = 0.5;
 
-		// Extract note, accidental, and octave
-		const match = note.match(/^([a-g])(#|b)?(\d+)$/i);
-		if (!match) throw new Error('Invalid note format');
+			// Connect: Synth -> Gain -> Speakers
+			this.#synthNode.connect(this.#gainNode);
+			this.#gainNode.connect(this.audioContext.destination);
+			console.log('Audio nodes set up successfully');
 
-		const [, noteName, accidental, octave] = match;
-		let semitones = noteMap[noteName.toLowerCase()];
-
-		// Adjust for sharp or flat
-		if (accidental === '#') semitones += 1;
-		if (accidental === 'b') semitones -= 1;
-
-		semitones += (parseInt(octave) + 1) * 12;
-		return 440 * Math.pow(2, (semitones - 69) / 12);
+			// Add error handler for AudioWorklet
+			this.#synthNode.onprocessorerror = (event) => {
+				console.error('AudioWorklet processor error:', event);
+			};
+		} catch (error) {
+			console.error('Failed to setup AudioWorklet:', error);
+			throw error;
+		}
 	}
 
-	playSequence(notes: string[]) {
-		const frequencies = notes.map((note) => this.noteToFreq(note));
-		this.#synthNode.port.postMessage({
-			type: 'playSequence',
-			frequencies,
-			attack: 0.05,
-			decay: 0.1
-		});
+	setFrequency(frequency: number) {
+		if (this.#synthNode && this.#isInitialized) {
+			console.log('Setting frequency:', frequency);
+			this.#synthNode.port.postMessage({
+				type: 'setFrequency',
+				value: frequency
+			});
+		}
+	}
+
+	setVolume(volume: number) {
+		if (this.#gainNode) {
+			console.log('Setting volume:', volume);
+			this.#gainNode.gain.value = volume;
+		}
+	}
+
+	setOscType(type: 'sine' | 'square') {
+		if (this.#synthNode && this.#isInitialized) {
+			console.log('Setting oscillator type:', type);
+			this.#synthNode.port.postMessage({
+				type: 'setOscType',
+				value: type
+			});
+		}
 	}
 }
