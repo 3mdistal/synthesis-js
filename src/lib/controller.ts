@@ -1,3 +1,5 @@
+import type { WaveType } from './waves';
+
 export class SynthController {
 	audioContext!: AudioContext;
 	#synthNode!: AudioWorkletNode;
@@ -50,28 +52,24 @@ export class SynthController {
 	setFrequency(frequency: number) {
 		if (this.#synthNode && this.#isInitialized) {
 			console.log('Setting frequency:', frequency);
-			this.#synthNode.port.postMessage({
-				type: 'setFrequency',
-				value: frequency
-			});
+			const param = (this.#synthNode.parameters as Map<string, AudioParam>).get('frequency');
+			if (param) param.setValueAtTime(frequency, this.audioContext.currentTime);
 		}
 	}
 
 	setVolume(volume: number) {
 		if (this.#synthNode && this.#isInitialized) {
 			console.log('Setting volume:', volume);
-			this.#synthNode.port.postMessage({
-				type: 'setGain',
-				value: volume
-			});
+			const param = (this.#synthNode.parameters as Map<string, AudioParam>).get('gain');
+			if (param) param.setValueAtTime(volume, this.audioContext.currentTime);
 		}
 	}
 
-	setOscType(type: 'sine' | 'square') {
+	setWaveType(type: WaveType) {
 		if (this.#synthNode && this.#isInitialized) {
-			console.log('Setting oscillator type:', type);
+			console.log('Setting wave type:', type);
 			this.#synthNode.port.postMessage({
-				type: 'setOscType',
+				type: 'setWaveType',
 				value: type
 			});
 		}

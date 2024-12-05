@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SynthController } from '$lib/controller';
+	import type { WaveType } from '$lib/waves';
 	import { onMount } from 'svelte';
 
 	const synth = new SynthController();
@@ -7,7 +8,9 @@
 	let volume = 0.5;
 	let isPlaying = false;
 	let error = '';
-	let oscType: 'sine' | 'square' = 'square';
+	let waveType: WaveType = 'square';
+
+	const waveTypes: WaveType[] = ['sine', 'square', 'saw'];
 
 	async function togglePlayback() {
 		try {
@@ -16,7 +19,7 @@
 				await synth.init();
 				synth.setFrequency(frequency);
 				synth.setVolume(volume);
-				synth.setOscType(oscType);
+				synth.setWaveType(waveType);
 				isPlaying = true;
 			} else {
 				await synth.stop();
@@ -42,11 +45,11 @@
 		synth.setVolume(volume);
 	}
 
-	function updateOscType(event: Event) {
+	function updateWaveType(event: Event) {
 		const select = event.target as HTMLSelectElement;
-		oscType = select.value as 'sine' | 'square';
+		waveType = select.value as WaveType;
 		if (isPlaying) {
-			synth.setOscType(oscType);
+			synth.setWaveType(waveType);
 		}
 	}
 </script>
@@ -61,10 +64,11 @@
 	{/if}
 
 	<div class="control">
-		<label for="osc-type">Oscillator Type:</label>
-		<select id="osc-type" value={oscType} on:change={updateOscType}>
-			<option value="square">Square</option>
-			<option value="sine">Sine</option>
+		<label for="wave-type">Wave Type:</label>
+		<select id="wave-type" value={waveType} on:change={updateWaveType}>
+			{#each waveTypes as type}
+				<option value={type}>{type}</option>
+			{/each}
 		</select>
 	</div>
 
