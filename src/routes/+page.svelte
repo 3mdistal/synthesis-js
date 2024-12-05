@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SynthController } from '$lib/controller';
-	import type { WaveType } from '$lib/waves';
+	import type { WaveType, WaveParameter } from '$lib/waves';
+	import { WAVE_PARAMETERS } from '$lib/waves';
 	import { onMount } from 'svelte';
 
 	const synth = new SynthController();
@@ -9,8 +10,9 @@
 	let isPlaying = false;
 	let error = '';
 	let waveType: WaveType = 'square';
+	let currentParams: { [key: string]: number } = {};
 
-	const waveTypes: WaveType[] = ['sine', 'square', 'saw'];
+	const waveTypes: WaveType[] = Object.keys(WAVE_PARAMETERS) as WaveType[];
 
 	async function togglePlayback() {
 		try {
@@ -48,10 +50,22 @@
 	function updateWaveType(event: Event) {
 		const select = event.target as HTMLSelectElement;
 		waveType = select.value as WaveType;
+		currentParams = {}; // Reset params when changing wave type
 		if (isPlaying) {
 			synth.setWaveType(waveType);
 		}
 	}
+
+	function updateParameter(paramKey: string, event: Event) {
+		const input = event.target as HTMLInputElement;
+		const value = parseFloat(input.value);
+		currentParams[paramKey] = value;
+		if (isPlaying) {
+			synth.setWaveParameter(paramKey, value);
+		}
+	}
+
+	$: waveParams = WAVE_PARAMETERS[waveType];
 </script>
 
 <div class="container">
@@ -97,6 +111,26 @@
 			on:input={updateVolume}
 		/>
 	</div>
+
+	{#if Object.keys(waveParams).length > 0}
+		<div class="parameters">
+			<h3>Wave Parameters</h3>
+			{#each Object.entries(waveParams) as [paramKey, param]}
+				<div class="control">
+					<label for={paramKey}>{param.name}: {currentParams[paramKey] ?? param.default}</label>
+					<input
+						type="range"
+						id={paramKey}
+						min={param.min}
+						max={param.max}
+						step={param.step}
+						value={currentParams[paramKey] ?? param.default}
+						on:input={(e) => updateParameter(paramKey, e)}
+					/>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -133,5 +167,16 @@
 	.error {
 		color: red;
 		font-weight: bold;
+	}
+
+	.parameters {
+		border-top: 1px solid #ccc;
+		padding-top: 20px;
+		margin-top: 10px;
+	}
+
+	h3 {
+		margin: 0 0 15px 0;
+		font-size: 16px;
 	}
 </style>

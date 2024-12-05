@@ -4,6 +4,7 @@ import type { WaveType } from './waves';
 class SimpleSynthProcessor extends AudioWorkletProcessor {
 	private phase = 0;
 	private currentType: WaveType = 'square';
+	private params: { [key: string]: number } = {};
 
 	static get parameterDescriptors() {
 		return [
@@ -22,6 +23,9 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 		this.port.onmessage = (e: MessageEvent) => {
 			if (e.data.type === 'setWaveType') {
 				this.currentType = e.data.value;
+				this.params = e.data.params || {};
+			} else if (e.data.type === 'setWaveParams') {
+				this.params = e.data.params;
 			}
 		};
 	}
@@ -43,8 +47,8 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 
 			// Fill the output buffer with samples
 			for (let i = 0; i < outputChannel.length; ++i) {
-				// Generate waveform using our library
-				outputChannel[i] = WaveGenerator.generate(this.currentType, this.phase, dt);
+				// Generate waveform using our library with parameters
+				outputChannel[i] = WaveGenerator.generate(this.currentType, this.phase, dt, this.params);
 
 				// Advance and wrap phase
 				this.phase += dt;

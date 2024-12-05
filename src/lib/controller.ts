@@ -1,11 +1,13 @@
 import type { WaveType } from './waves';
 import { Amp } from './amp';
+import { WAVE_PARAMETERS } from './waves';
 
 export class SynthController {
 	audioContext!: AudioContext;
 	#synthNode!: AudioWorkletNode;
 	#amp!: Amp;
 	#isInitialized = false;
+	#currentParams: { [key: string]: number } = {};
 
 	async init() {
 		if (!this.#isInitialized) {
@@ -76,10 +78,32 @@ export class SynthController {
 	setWaveType(type: WaveType) {
 		if (this.#synthNode && this.#isInitialized) {
 			console.log('Setting wave type:', type);
+			// Reset parameters to defaults for new wave type
+			this.#currentParams = {};
+			const params = WAVE_PARAMETERS[type];
+			for (const [key, param] of Object.entries(params)) {
+				this.#currentParams[key] = param.default;
+			}
 			this.#synthNode.port.postMessage({
 				type: 'setWaveType',
-				value: type
+				value: type,
+				params: this.#currentParams
 			});
 		}
+	}
+
+	setWaveParameter(name: string, value: number) {
+		if (this.#synthNode && this.#isInitialized) {
+			console.log(`Setting parameter ${name}:`, value);
+			this.#currentParams[name] = value;
+			this.#synthNode.port.postMessage({
+				type: 'setWaveParams',
+				params: this.#currentParams
+			});
+		}
+	}
+
+	getCurrentParams(): { [key: string]: number } {
+		return { ...this.#currentParams };
 	}
 }
