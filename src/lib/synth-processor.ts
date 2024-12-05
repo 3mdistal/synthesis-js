@@ -4,6 +4,8 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 	phase: number;
 	type: 'sine' | 'square';
 	smoothingFactor: number;
+	currentGain: number;
+	targetGain: number;
 
 	constructor() {
 		super();
@@ -12,6 +14,8 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 		this.phase = 0;
 		this.type = 'square';
 		this.smoothingFactor = 0.05;
+		this.currentGain = 0.5;
+		this.targetGain = 0.5;
 
 		this.port.onmessage = (e: MessageEvent) => {
 			if (e.data.type === 'setFrequency') {
@@ -19,13 +23,14 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 				this.targetFrequency = e.data.value;
 			} else if (e.data.type === 'setOscType') {
 				this.type = e.data.value;
+			} else if (e.data.type === 'setGain') {
+				console.log('Received gain:', e.data.value);
+				this.targetGain = e.data.value;
 			}
 		};
 	}
 
-	// PolyBLEP anti-aliasing for square wave
 	polyBlep(t: number, dt: number): number {
-		// t = phase, dt = frequency/sampleRate
 		if (t < dt) {
 			t = t / dt;
 			return t + t - t * t - 1.0;
@@ -39,8 +44,9 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 	process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
 		const output = outputs[0];
 
-		// Smooth frequency changes
+		// Smooth parameter changes
 		this.frequency += (this.targetFrequency - this.frequency) * this.smoothingFactor;
+		this.currentGain += (this.targetGain - this.currentGain) * this.smoothingFactor;
 
 		// Calculate phase increment
 		const dt = this.frequency / sampleRate;
@@ -54,15 +60,19 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 				const t = this.phase;
 
 				// Generate waveform
+				let sample;
 				if (this.type === 'sine') {
-					outputChannel[i] = Math.sin(2.0 * Math.PI * t);
+					sample = Math.sin(2.0 * Math.PI * t);
 				} else {
 					// Anti-aliased square wave using PolyBLEP
 					let square = t < 0.5 ? 1 : -1;
-					square -= this.polyBlep(t, dt); // First edge
-					square += this.polyBlep((t + 0.5) % 1.0, dt); // Second edge
-					outputChannel[i] = square * 0.5; // Reduce amplitude to prevent clipping
+					square -= this.polyBlep(t, dt);
+					square += this.polyBlep((t + 0.5) % 1.0, dt);
+					sample = square * 0.5;
 				}
+
+				// Apply smoothed gain
+				outputChannel[i] = sample * this.currentGain;
 
 				// Advance and wrap phase
 				this.phase += dt;

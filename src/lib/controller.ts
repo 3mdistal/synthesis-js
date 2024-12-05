@@ -1,7 +1,6 @@
 export class SynthController {
 	audioContext!: AudioContext;
 	#synthNode!: AudioWorkletNode;
-	#gainNode!: GainNode;
 	#isInitialized = false;
 
 	async init() {
@@ -35,12 +34,7 @@ export class SynthController {
 			console.log('Setting up audio nodes...');
 			await this.audioContext.audioWorklet.addModule('/synth-processor.js');
 			this.#synthNode = new AudioWorkletNode(this.audioContext, 'simple-synth-processor');
-			this.#gainNode = this.audioContext.createGain();
-			this.#gainNode.gain.value = 0.5;
-
-			// Connect: Synth -> Gain -> Speakers
-			this.#synthNode.connect(this.#gainNode);
-			this.#gainNode.connect(this.audioContext.destination);
+			this.#synthNode.connect(this.audioContext.destination);
 			console.log('Audio nodes set up successfully');
 
 			// Add error handler for AudioWorklet
@@ -64,9 +58,12 @@ export class SynthController {
 	}
 
 	setVolume(volume: number) {
-		if (this.#gainNode) {
+		if (this.#synthNode && this.#isInitialized) {
 			console.log('Setting volume:', volume);
-			this.#gainNode.gain.value = volume;
+			this.#synthNode.port.postMessage({
+				type: 'setGain',
+				value: volume
+			});
 		}
 	}
 

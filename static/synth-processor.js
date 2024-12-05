@@ -9,16 +9,20 @@
       this.phase = 0;
       this.type = "square";
       this.smoothingFactor = 0.05;
+      this.currentGain = 0.5;
+      this.targetGain = 0.5;
       this.port.onmessage = (e) => {
         if (e.data.type === "setFrequency") {
           console.log("Received frequency:", e.data.value);
           this.targetFrequency = e.data.value;
         } else if (e.data.type === "setOscType") {
           this.type = e.data.value;
+        } else if (e.data.type === "setGain") {
+          console.log("Received gain:", e.data.value);
+          this.targetGain = e.data.value;
         }
       };
     }
-    // PolyBLEP anti-aliasing for square wave
     polyBlep(t, dt) {
       if (t < dt) {
         t = t / dt;
@@ -32,19 +36,22 @@
     process(_inputs, outputs) {
       const output = outputs[0];
       this.frequency += (this.targetFrequency - this.frequency) * this.smoothingFactor;
+      this.currentGain += (this.targetGain - this.currentGain) * this.smoothingFactor;
       const dt = this.frequency / sampleRate;
       for (let channel = 0; channel < output.length; ++channel) {
         const outputChannel = output[channel];
         for (let i = 0; i < outputChannel.length; ++i) {
           const t = this.phase;
+          let sample;
           if (this.type === "sine") {
-            outputChannel[i] = Math.sin(2 * Math.PI * t);
+            sample = Math.sin(2 * Math.PI * t);
           } else {
             let square = t < 0.5 ? 1 : -1;
             square -= this.polyBlep(t, dt);
             square += this.polyBlep((t + 0.5) % 1, dt);
-            outputChannel[i] = square * 0.5;
+            sample = square * 0.5;
           }
+          outputChannel[i] = sample * this.currentGain;
           this.phase += dt;
           if (this.phase >= 1) {
             this.phase -= 1;
