@@ -13,20 +13,6 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 				minValue: 20,
 				maxValue: 20000,
 				automationRate: 'k-rate'
-			},
-			{
-				name: 'gain',
-				defaultValue: 0.5,
-				minValue: 0,
-				maxValue: 1,
-				automationRate: 'k-rate'
-			},
-			{
-				name: 'waveTypeIndex',
-				defaultValue: 0, // 0: sine, 1: square, 2: saw
-				minValue: 0,
-				maxValue: 2,
-				automationRate: 'k-rate'
 			}
 		];
 	}
@@ -47,7 +33,6 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 	): boolean {
 		const output = outputs[0];
 		const frequency = parameters.frequency[0];
-		const gain = parameters.gain[0];
 
 		// Calculate phase increment
 		const dt = frequency / sampleRate;
@@ -59,10 +44,7 @@ class SimpleSynthProcessor extends AudioWorkletProcessor {
 			// Fill the output buffer with samples
 			for (let i = 0; i < outputChannel.length; ++i) {
 				// Generate waveform using our library
-				const sample = WaveGenerator.generate(this.currentType, this.phase, dt);
-
-				// Apply gain
-				outputChannel[i] = sample * gain;
+				outputChannel[i] = WaveGenerator.generate(this.currentType, this.phase, dt);
 
 				// Advance and wrap phase
 				this.phase += dt;

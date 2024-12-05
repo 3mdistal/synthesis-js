@@ -1,8 +1,10 @@
 import type { WaveType } from './waves';
+import { Amp } from './amp';
 
 export class SynthController {
 	audioContext!: AudioContext;
 	#synthNode!: AudioWorkletNode;
+	#amp!: Amp;
 	#isInitialized = false;
 
 	async init() {
@@ -35,8 +37,15 @@ export class SynthController {
 		try {
 			console.log('Setting up audio nodes...');
 			await this.audioContext.audioWorklet.addModule('/synth-processor.js');
+
+			// Create and connect nodes
 			this.#synthNode = new AudioWorkletNode(this.audioContext, 'simple-synth-processor');
-			this.#synthNode.connect(this.audioContext.destination);
+			this.#amp = new Amp(this.audioContext);
+
+			// Connect: Synth -> Amp -> Speakers
+			this.#synthNode.connect(this.#amp.input);
+			this.#amp.connect(this.audioContext.destination);
+
 			console.log('Audio nodes set up successfully');
 
 			// Add error handler for AudioWorklet
@@ -58,10 +67,9 @@ export class SynthController {
 	}
 
 	setVolume(volume: number) {
-		if (this.#synthNode && this.#isInitialized) {
+		if (this.#amp && this.#isInitialized) {
 			console.log('Setting volume:', volume);
-			const param = (this.#synthNode.parameters as Map<string, AudioParam>).get('gain');
-			if (param) param.setValueAtTime(volume, this.audioContext.currentTime);
+			this.#amp.setGain(volume);
 		}
 	}
 

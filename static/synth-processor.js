@@ -60,34 +60,17 @@
           minValue: 20,
           maxValue: 2e4,
           automationRate: "k-rate"
-        },
-        {
-          name: "gain",
-          defaultValue: 0.5,
-          minValue: 0,
-          maxValue: 1,
-          automationRate: "k-rate"
-        },
-        {
-          name: "waveTypeIndex",
-          defaultValue: 0,
-          // 0: sine, 1: square, 2: saw
-          minValue: 0,
-          maxValue: 2,
-          automationRate: "k-rate"
         }
       ];
     }
     process(_inputs, outputs, parameters) {
       const output = outputs[0];
       const frequency = parameters.frequency[0];
-      const gain = parameters.gain[0];
       const dt = frequency / sampleRate;
       for (let channel = 0; channel < output.length; ++channel) {
         const outputChannel = output[channel];
         for (let i = 0; i < outputChannel.length; ++i) {
-          const sample = WaveGenerator.generate(this.currentType, this.phase, dt);
-          outputChannel[i] = sample * gain;
+          outputChannel[i] = WaveGenerator.generate(this.currentType, this.phase, dt);
           this.phase += dt;
           if (this.phase >= 1) {
             this.phase -= 1;
